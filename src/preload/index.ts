@@ -1,12 +1,23 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
-const api = {}
+const api = {
+  // Settings
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  onSettingsLoad: (cb: (s: any) => void) => ipcRenderer.on('settings:load', (_e, s) => cb(s)),
+  saveSettings: (s: any) => ipcRenderer.invoke('settings:save', s),
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+  // Confirm dialog
+  onConfirm: (cb: (d: { action: string; countdown: number }) => void) =>
+    ipcRenderer.on('confirm:show', (_e, d) => cb(d)),
+  confirmAccept: () => ipcRenderer.invoke('confirm:accept'),
+  confirmCancel: () => ipcRenderer.invoke('confirm:cancel'),
+
+  // Optional: simulate outage from UI
+  testOutage: () => ipcRenderer.invoke('confirm:test'),
+}
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
@@ -15,8 +26,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
+  // @ts-ignore
   window.electron = electronAPI
-  // @ts-ignore (define in dts)
+  // @ts-ignore
   window.api = api
 }
