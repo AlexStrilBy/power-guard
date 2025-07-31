@@ -1,5 +1,6 @@
 import { resolve } from 'path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+// @ts-ignore No type definitions for @vitejs/plugin-vue
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({

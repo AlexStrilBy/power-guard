@@ -1,256 +1,156 @@
-import {
-  app,
-  shell,
-  BrowserWindow,
-  ipcMain,
-  Menu,
-  Tray,
-  nativeImage
-} from 'electron';
-import path, { join } from 'path';
-import { electronApp, optimizer } from '@electron-toolkit/utils';
-import Store from 'electron-store';
+import { app, BrowserWindow, ipcMain } from 'electron'
+import { join } from 'path'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
+import Store from 'electron-store'
 
-// If you have an app icon under resources/, keep this import.
-// Otherwise you can remove it and the tray will use an empty icon.
-import icon from '../../resources/icon.png?asset';
+import { OutageMonitor } from './monitor'
+import { performAction, type PowerAction } from './power'
 
-import { OutageMonitor } from './monitor';
-import { performAction, type PowerAction } from './power';
+import icon from '../../resources/icon.png?asset'
+import { BaseWindowProps } from './windows/types'
+import { useSettingsWindow } from './windows/useSettingsWindow'
+import { useConfirmWindow } from './windows/useConfirmWindow'
+import { useTray } from './tray/useTray'
+import { BaseTrayProps } from './tray/types'
+import { AppSettings } from './types'
 
 // -----------------------------
 // Settings & defaults
 // -----------------------------
-type Settings = {
-  targetIp: string;
-  action: PowerAction;
-  failureSeconds: number;
-  confirmCountdown: number;
-  startWithWindows: boolean;
-  enabled: boolean;
-  snoozeMinutes: number;
-};
-
-const defaults: Settings = {
-  targetIp: '192.168.1.50',
+const defaults: AppSettings = {
+  targetIp: '192.168.1.1',
   action: 'hibernate',
   failureSeconds: 8,
   confirmCountdown: 20,
   startWithWindows: true,
   enabled: true,
   snoozeMinutes: 5
-};
+}
 
-const store = new Store<Settings>({ defaults });
-
+const store = new Store<AppSettings>({ defaults })
 
 // -----------------------------
 // Globals
 // -----------------------------
-let tray: Tray | null = null;
-let settingsWin: BrowserWindow | null = null;
-let confirmWin: BrowserWindow | null = null;
+const baseWindowProps: BaseWindowProps = {
+  rendererUrl: process.env['ELECTRON_RENDERER_URL'],
+  preloadFile: join(__dirname, '../preload/index.mjs'),
+  icon
+}
+const baseTrayProps: BaseTrayProps = {
+  icon
+}
 
-const preloadFile = join(__dirname, '../preload/index.mjs');
-
-const rendererUrl = process.env['ELECTRON_RENDERER_URL'];
+const { createWindow: createSettingsWindow } = useSettingsWindow(baseWindowProps)
+const { createWindow: createConfirmWindow, closeWindow: closeConfirmWindow } =
+  useConfirmWindow(baseWindowProps)
+const { createTray } = useTray(baseTrayProps)
 
 // Monitor instance
 const monitor = new OutageMonitor({
   targetIp: store.get('targetIp'),
   failureSeconds: store.get('failureSeconds'),
   intervalMs: 1000
-});
+})
 
 // -----------------------------
 // Helpers
 // -----------------------------
-function applyLoginItem() {
+const applyLoginItem = (): void => {
   app.setLoginItemSettings({
     openAtLogin: store.get('startWithWindows')
-  });
+  })
 }
 
-function createSettingsWindow() {
-  if (settingsWin) return settingsWin;
-
-  settingsWin = new BrowserWindow({
-    width: 560,
-    height: 900,
-    show: false, // start hidden; show when user clicks tray
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: preloadFile,
-      sandbox: false
-    }
-  });
-
-  if (rendererUrl) settingsWin.loadURL(rendererUrl);
-  else settingsWin.loadFile(join(__dirname, '../renderer/index.html'));
-
-  // Keep app alive in tray when window is closed
-  settingsWin.on('close', (e) => {
-    e.preventDefault();
-    settingsWin?.hide();
-  });
-
-  settingsWin.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url);
-    return { action: 'deny' };
-  });
-
-  return settingsWin;
+const showSettings = (): void => {
+  const win = createSettingsWindow()
+  win.show()
+  win.focus()
+  win.webContents.send('settings:load', store.store)
 }
 
-function showSettings() {
-  const win = createSettingsWindow();
-  win.show();
-  win.focus();
-  console.log(store)
-  win.webContents.send('settings:load', store.store);
+const showConfirm = (action: PowerAction, countdown: number): void => {
+  const win = createConfirmWindow()
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+  win.webContents.send('confirm:show', { action, countdown })
 }
 
-function createConfirmWindow() {
-  if (confirmWin) return confirmWin;
+ipcMain.handle('settings:get', () => store.store)
 
-  confirmWin = new BrowserWindow({
-    width: 420,
-    height: 230,
-    frame: false,
-    alwaysOnTop: true,
-    resizable: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: preloadFile,
-      sandbox: false
-    }
-  });
-
-  // Route renderer to a confirm view (hash-based)
-  if (rendererUrl) confirmWin.loadURL(rendererUrl + '#/confirm');
-  else confirmWin.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'confirm' });
-
-  confirmWin.on('closed', () => (confirmWin = null));
-  return confirmWin;
-}
-
-function showConfirm(action: PowerAction, countdown: number) {
-  const win = createConfirmWindow();
-  if (win.isMinimized()) win.restore();
-  win.show();
-  win.focus();
-  win.webContents.send('confirm:show', { action, countdown });
-}
-
-function createTray() {
-  // Use your PNG/ICO if available; fallback to empty image to avoid errors
-  const trayIcon = icon ? nativeImage.createFromPath(icon) : nativeImage.createEmpty();
-  tray = new Tray(trayIcon);
-
-  const updateMenu = () => {
-    const enabled = store.get('enabled');
-    const menu = Menu.buildFromTemplate([
-      { label: 'Open Settings', click: () => showSettings() },
-      { type: 'separator' },
-      { label: 'Simulate Outage (test)', click: () => showConfirm(store.get('action'), 5) },
-      {
-        label: enabled ? 'Pause Monitoring' : 'Resume Monitoring',
-        click: () => {
-          store.set('enabled', !enabled);
-          if (store.get('enabled')) monitor.start();
-          else monitor.stop();
-          updateMenu();
-        }
-      },
-      { type: 'separator' },
-      { label: 'Quit', click: () => app.exit(0) }
-    ]);
-    tray!.setContextMenu(menu);
-  };
-
-  tray.setToolTip('Power Guard');
-  tray.on('click', () => showSettings());
-  updateMenu();
-}
-
-ipcMain.handle('settings:get', () => store.store);
-
-ipcMain.handle('settings:save', (_e, s: Partial<Settings>) => {
-  const prevStart = store.get('startWithWindows');
+ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
+  const prevStart = store.get('startWithWindows')
 
   // Persist new settings
-  store.set({ ...store.store, ...s });
+  store.set({ ...store.store, ...s })
 
   // Apply changed monitor parameters
   monitor.update({
     targetIp: store.get('targetIp'),
     failureSeconds: store.get('failureSeconds')
-  });
+  })
 
   // Apply login-at-start toggle
   if (s.startWithWindows !== undefined && s.startWithWindows !== prevStart) {
-    applyLoginItem();
+    applyLoginItem()
   }
-});
+})
 
 ipcMain.handle('confirm:accept', async () => {
-  confirmWin?.close();
-  await performAction(store.get('action'));
-});
+  closeConfirmWindow()
+  await performAction(store.get('action'))
+})
 
 ipcMain.handle('confirm:cancel', async () => {
-  confirmWin?.close();
-  // Snooze monitoring for N minutes to avoid immediate retrigger
-  monitor.stop();
-  setTimeout(
-      () => store.get('enabled') && monitor.start(),
-      store.get('snoozeMinutes') * 60_000
-  );
-});
+  closeConfirmWindow()
+
+  monitor.stop()
+  setTimeout(() => store.get('enabled') && monitor.start(), store.get('snoozeMinutes') * 60_000)
+})
 
 // Optional: UI test hook
 ipcMain.handle('confirm:test', async () => {
-  showConfirm(store.get('action'), 5);
-});
+  showConfirm(store.get('action'), 5)
+})
 
 // -----------------------------
 // Single-instance & app lifecycle
 // -----------------------------
-const gotLock = app.requestSingleInstanceLock();
+const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   if (process.env.NODE_ENV === 'development') {
-    console.warn('Second instance in dev — continuing without lock.');
+    console.warn('Second instance in dev — continuing without lock.')
   } else {
-    app.quit();
+    app.quit()
   }
 } else {
   app.on('second-instance', () => {
-    showSettings();
-  });
+    showSettings()
+  })
 
   app.whenReady().then(() => {
-    electronApp.setAppUserModelId('com.power.guard');
+    console.log('app ready')
 
-    applyLoginItem();
-    createSettingsWindow(); // create (hidden) so it's ready fast
-    createTray();
+    electronApp.setAppUserModelId('com.power.guard')
 
-    // Electron Toolkit helper to optimize keyboard shortcuts
+    applyLoginItem()
+    createSettingsWindow() // create (hidden) so it's ready fast
+    createTray()
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createSettingsWindow()
+    })
+
     app.on('browser-window-created', (_, window) => {
-      optimizer.watchWindowShortcuts(window);
-    });
+      optimizer.watchWindowShortcuts(window)
+    })
 
-    if (store.get('enabled')) monitor.start();
-  });
+    if (store.get('enabled')) monitor.start()
+  })
 
-  // Keep app running in tray when all windows are closed
-  app.on('window-all-closed', (e) => {
-    e.preventDefault();
-  });
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createSettingsWindow();
-  });
+  // @ts-ignore False Vue event warning
+  app.on('window-all-closed', (e: Electron.Event): void => {
+    e.preventDefault()
+  })
 }
