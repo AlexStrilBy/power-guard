@@ -3,29 +3,22 @@ import { onMounted, reactive, ref } from 'vue'
 import { AppSettings } from '../../main/types'
 
 const view = ref<'settings' | 'confirm'>('settings')
-const s = reactive<AppSettings>({
-  targetIp: '192.168.1.1',
-  action: 'hibernate',
-  failureSeconds: 8,
-  confirmCountdown: 20,
-  startWithWindows: true,
-  enabled: true,
-  snoozeMinutes: 5
-})
+const appSettings = ref<AppSettings>()
 
 // confirm state
 const confirm = reactive({ action: 'hibernate', remain: 0 })
 let timer: number | null = null
 
-function clamp(): void {
-  s.failureSeconds = Math.max(2, Math.min(120, s.failureSeconds))
-  s.confirmCountdown = Math.max(5, Math.min(300, s.confirmCountdown))
-  s.snoozeMinutes = Math.max(1, Math.min(120, s.snoozeMinutes))
-}
-
 function save(): void {
-  clamp()
-  window.api.saveSettings({ ...s })
+  if (!appSettings.value) return
+
+  appSettings.value.failureSeconds = Math.max(2, Math.min(120, appSettings.value.failureSeconds))
+  appSettings.value.confirmCountdown = Math.max(
+    5,
+    Math.min(300, appSettings.value.confirmCountdown)
+  )
+  appSettings.value.snoozeMinutes = Math.max(1, Math.min(120, appSettings.value.snoozeMinutes))
+  window.api.saveSettings({ ...appSettings.value })
 }
 
 function startCountdown(sec: number): void {
@@ -41,33 +34,33 @@ function startCountdown(sec: number): void {
 }
 
 onMounted(async () => {
-  console.log(window)
-  const data = await window.api.getSettings()
-  console.log(data)
-  Object.assign(s, data)
+  appSettings.value = await window.api.getSettings()
 
   // Listen for updates from main after save
-  window.api.onSettingsLoad((updated) => Object.assign(s, updated))
+  window.api.onSettingsLoad((updated) => Object.assign(appSettings, updated))
 })
 </script>
 
 <template>
-  <div v-if="view === 'settings'" class="wrap">
+  <div v-if="!appSettings">
+    <h2>Loading...</h2>
+  </div>
+  <div v-else-if="view === 'settings'" class="wrap">
     <h2>Power Guard</h2>
     <div class="row">
       <label>Target IP (mains-only device)</label>
-      <input v-model="s.targetIp" placeholder="192.168.1.50" />
+      <input v-model="appSettings.targetIp" placeholder="192.168.1.50" />
       <small>Put the device BEFORE the UPS so it goes offline when the grid drops.</small>
     </div>
 
     <div class="row">
       <label>Consecutive failure seconds</label>
-      <input v-model.number="s.failureSeconds" type="number" min="2" max="120" />
+      <input v-model.number="appSettings.failureSeconds" type="number" min="2" max="120" />
     </div>
 
     <div class="row">
       <label>Action on outage</label>
-      <select v-model="s.action">
+      <select v-model="appSettings.action">
         <option value="hibernate">Hibernate (recommended)</option>
         <option value="sleep">Sleep</option>
         <option value="shutdown">Shutdown</option>
@@ -76,19 +69,21 @@ onMounted(async () => {
 
     <div class="row">
       <label>Confirm countdown (seconds)</label>
-      <input v-model.number="s.confirmCountdown" type="number" min="5" max="300" />
+      <input v-model.number="appSettings.confirmCountdown" type="number" min="5" max="300" />
     </div>
 
     <div class="row">
       <label>Snooze (minutes) after cancel</label>
-      <input v-model.number="s.snoozeMinutes" type="number" min="1" max="120" />
+      <input v-model.number="appSettings.snoozeMinutes" type="number" min="1" max="120" />
     </div>
 
     <div class="row checkbox">
-      <label><input v-model="s.enabled" type="checkbox" /> Enable monitoring</label>
+      <label><input v-model="appSettings.enabled" type="checkbox" /> Enable monitoring</label>
     </div>
     <div class="row checkbox">
-      <label><input v-model="s.startWithWindows" type="checkbox" /> Start with Windows</label>
+      <label
+        ><input v-model="appSettings.startWithWindows" type="checkbox" /> Start with Windows</label
+      >
     </div>
 
     <div class="row actions">
@@ -99,7 +94,6 @@ onMounted(async () => {
       Tip: give the target device a <b>static DHCP reservation</b> so its IP never changes.
     </p>
   </div>
-
   <div v-else class="confirm">
     <h3>Power outage detected</h3>
     <p>

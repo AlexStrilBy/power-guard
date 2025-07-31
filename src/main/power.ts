@@ -16,13 +16,16 @@ function run(cmd: string, args: string[]): Promise<void> {
 export async function performAction(action: PowerAction): Promise<void> {
   switch (action) {
     case 'hibernate':
-      await run('shutdown', ['/h'])
+      console.log('Hibernating system...')
+      // await run('shutdown', ['/h'])
       break
     case 'sleep':
-      await run('rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0'])
+      console.log('Putting system to sleep...')
+      // await run('rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0'])
       break
     case 'shutdown':
-      await run('shutdown', ['/s', '/t', '0'])
+      console.log('Shutting down system...')
+      // await run('shutdown', ['/s', '/t', '0'])
       break
   }
 }

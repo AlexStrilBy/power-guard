@@ -130,16 +130,14 @@ if (!gotLock) {
   })
 
   app.whenReady().then(() => {
-    console.log('app ready')
-
     electronApp.setAppUserModelId('com.power.guard')
 
     applyLoginItem()
-    createSettingsWindow() // create (hidden) so it's ready fast
     createTray()
+    showSettings()
 
     app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createSettingsWindow()
+      if (BrowserWindow.getAllWindows().length === 0) showSettings()
     })
 
     app.on('browser-window-created', (_, window) => {

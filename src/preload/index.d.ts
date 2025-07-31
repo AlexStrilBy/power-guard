@@ -6,8 +6,8 @@ declare global {
     electron: ElectronAPI
     api: {
       getSettings(): Promise<AppSettings>
-      onSettingsLoad(cb: (s: any) => void): void
-      saveSettings(s: any): Promise<void>
+      onSettingsLoad(cb: (s: AppSettings) => void): void
+      saveSettings(s: AppSettings): Promise<void>
       onConfirm(cb: (d: { action: string; countdown: number }) => void): void
       confirmAccept(): Promise<void>
       confirmCancel(): Promise<void>

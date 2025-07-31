@@ -1,12 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { AppSettings } from '../main/types'
 
 // Custom APIs for renderer
 const api = {
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
-  onSettingsLoad: (cb: (s: any) => void) => ipcRenderer.on('settings:load', (_e, s) => cb(s)),
-  saveSettings: (s: any) => ipcRenderer.invoke('settings:save', s),
+  onSettingsLoad: (cb: (s: AppSettings) => void) =>
+    ipcRenderer.on('settings:load', (_e, s) => cb(s)),
+  saveSettings: (s: AppSettings) => ipcRenderer.invoke('settings:save', s),
 
   // Confirm dialog
   onConfirm: (cb: (d: { action: string; countdown: number }) => void) =>
@@ -15,7 +17,7 @@ const api = {
   confirmCancel: () => ipcRenderer.invoke('confirm:cancel'),
 
   // Optional: simulate outage from UI
-  testOutage: () => ipcRenderer.invoke('confirm:test'),
+  testOutage: () => ipcRenderer.invoke('confirm:test')
 }
 
 if (process.contextIsolated) {
@@ -26,8 +28,8 @@ if (process.contextIsolated) {
     console.error(error)
   }
 } else {
-  // @ts-ignore
+  // @ts-ignore Missing window types
   window.electron = electronAPI
-  // @ts-ignore
+  // @ts-ignore Missing window types
   window.api = api
 }
