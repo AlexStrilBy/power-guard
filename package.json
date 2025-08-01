@@ -25,7 +25,6 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@types/ping": "^0.4.4",
-    "dotenv": "^17.2.1",
     "electron-store": "^8",
     "electron-updater": "^6.3.9",
     "moment": "^2.30.1",

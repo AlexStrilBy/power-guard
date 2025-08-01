@@ -52,7 +52,7 @@ export const useTray: BaseTrayComposable<UseTrayProps> = ({
     const trayIcon = icon ? nativeImage.createFromPath(icon) : nativeImage.createEmpty()
     tray = new Tray(trayIcon)
 
-    tray.setToolTip(process.env.APP_NAME || '')
+    tray.setToolTip('Power Guard')
     tray.on('click', onOpenSettings)
     updateMenu()
   }

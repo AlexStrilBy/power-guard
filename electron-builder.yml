@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: electron-app
+appId: com.power.guard
+productName: "Power Guard"
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: electron-app
+  executableName: power-guard
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

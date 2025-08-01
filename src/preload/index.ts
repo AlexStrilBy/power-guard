@@ -16,7 +16,7 @@ const api = {
 }
 
 const appConfig = {
-  appName: process.env['APP_NAME']
+  appName: 'Power Guard'
 }
 
 if (process.contextIsolated) {

@@ -10,11 +10,9 @@ import { useTray } from './tray/useTray'
 import { BaseTrayProps } from './tray/types'
 import { AppSettings, ConfirmData } from './types'
 import { useAppSettingStore } from './store/useAppSettingStore'
-import dotenv from 'dotenv'
 import moment from 'moment'
 import { performAction } from './power'
 
-dotenv.config()
 
 // region Globals
 let settingsWindow: BrowserWindow | null = null
@@ -179,7 +177,7 @@ if (!gotLock) {
   initAppStartup(store.store)
 
   app.whenReady().then(() => {
-    app.setName(process.env.APP_NAME || '')
+    app.setName('Power Guard')
     electronApp.setAppUserModelId('com.power.guard')
 
     createTray()
