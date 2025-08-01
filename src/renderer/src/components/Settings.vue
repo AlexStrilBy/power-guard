@@ -21,8 +21,6 @@ const performOutageTest = (): void => {
 }
 
 onBeforeMount(async () => {
-  appSettings.value = await window.api.getSettings()
-
   window.api.onSettingsLoad((updated) => {
     appSettings.value = updated
   })

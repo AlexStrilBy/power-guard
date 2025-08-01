@@ -45,7 +45,6 @@ export const useTray: BaseTrayComposable<UseTrayProps> = ({
   }
 
   function createTray(): void {
-    // Use your PNG/ICO if available; fallback to empty image to avoid errors
     const trayIcon = icon ? nativeImage.createFromPath(icon) : nativeImage.createEmpty()
     tray = new Tray(trayIcon)
 

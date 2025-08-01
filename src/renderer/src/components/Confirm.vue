@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeMount, ref } from 'vue'
+import { onBeforeMount, onMounted, ref } from 'vue'
 import { ConfirmData } from '../../../main/types'
 
 const confirm = ref<ConfirmData>()
@@ -22,9 +22,9 @@ const startCountdown = (sec: number): void => {
   }, 1000) as unknown as number
 }
 
-onBeforeMount(() => {
+onMounted(() => {
   window.api.onConfirm((data) => {
-    console.log(data)
+    confirm.value = data
   })
 })
 </script>

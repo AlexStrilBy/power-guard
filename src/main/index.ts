@@ -31,14 +31,30 @@ const baseTrayProps: BaseTrayProps = {
 }
 // endregion
 
+// region IPC events
+const sendConfirmEvent = (): void => {
+  confirmWindow?.webContents.send('confirm:show', {
+    action: store.get('action'),
+    countdown: store.get('confirmCountdown')
+  } as ConfirmData)
+}
+
+const sendSettingsLoadEvent = (): void => {
+  settingsWindow?.webContents.send('settings:load', store.store)
+}
+// endregion
+
 // region Windows
 const { createWindow: createSettingsWindow } = useSettingsWindow(baseWindowProps)
 const { createWindow: createConfirmWindow } = useConfirmWindow(baseWindowProps)
 
 const showSettings = (): void => {
   settingsWindow = createSettingsWindow()
+  if (settingsWindow.isMinimized()) settingsWindow.restore()
   settingsWindow.show()
   settingsWindow.focus()
+
+  settingsWindow.webContents.once('did-finish-load', sendSettingsLoadEvent)
 }
 
 const showConfirm = (): void => {
@@ -46,10 +62,8 @@ const showConfirm = (): void => {
   if (confirmWindow.isMinimized()) confirmWindow.restore()
   confirmWindow.show()
   confirmWindow.focus()
-  confirmWindow.webContents.send('confirm:show', {
-    action: store.get('action'),
-    countdown: store.get('confirmCountdown')
-  } as ConfirmData)
+
+  confirmWindow.webContents.once('did-finish-load', sendConfirmEvent)
 }
 
 const { createTray } = useTray({
@@ -97,14 +111,16 @@ const initAppStartup = (storeState: AppSettings | undefined): void => {
   })
 }
 
-// Watchers
+// region Store watchers
 store.onDidAnyChange((storeState) => {
-  settingsWindow?.webContents.send('settings:load', storeState)
+  sendSettingsLoadEvent()
 
   initMonitor(storeState)
   initAppStartup(storeState)
 })
+// endregion
 
+// region IPC Handlers
 ipcMain.handle('settings:get', () => store.store)
 
 ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
@@ -129,6 +145,7 @@ ipcMain.handle('confirm:cancel', async () => {
 ipcMain.handle('confirm:test', async () => {
   showConfirm()
 })
+// endregion
 
 // -----------------------------
 // Single-instance & app lifecycle

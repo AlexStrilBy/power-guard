@@ -18,7 +18,7 @@ export const useConfirmWindow: BaseWindowComposable = ({
       width: 420,
       height: 230,
       frame: false,
-      alwaysOnTop: true,
+      alwaysOnTop: false,
       resizable: false,
       autoHideMenuBar: true,
       ...(process.platform === 'linux' ? { icon } : {}),
