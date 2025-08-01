@@ -6,7 +6,7 @@ export interface AppSettings {
   failureSeconds: number
   pingIntervalSeconds: number
   confirmCountdown: number
-  startWithWindows: boolean
+  launchOnStartup: boolean
   enabled: boolean
   snoozeMinutes: number
 }

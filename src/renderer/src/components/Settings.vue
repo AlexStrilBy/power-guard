@@ -101,7 +101,7 @@ onBeforeMount(async () => {
     </div>
     <div class="row checkbox">
       <label>
-        <input v-model="appSettings.startWithWindows" type="checkbox" /> Start with Windows
+        <input v-model="appSettings.launchOnStartup" type="checkbox" /> Start with Windows
       </label>
     </div>
 

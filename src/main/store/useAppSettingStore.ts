@@ -12,7 +12,7 @@ export const useAppSettingStore = (): UseAppSettingStoreReturn => {
     failureSeconds: 8,
     pingIntervalSeconds: 60,
     confirmCountdown: 20,
-    startWithWindows: true,
+    launchOnStartup: true,
     enabled: true,
     snoozeMinutes: 5
   }

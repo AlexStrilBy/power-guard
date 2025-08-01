@@ -31,6 +31,7 @@ const baseTrayProps: BaseTrayProps = {
 }
 // endregion
 
+// region Windows
 const { createWindow: createSettingsWindow } = useSettingsWindow(baseWindowProps)
 const { createWindow: createConfirmWindow } = useConfirmWindow(baseWindowProps)
 
@@ -62,8 +63,9 @@ const { createTray } = useTray({
     store.set('enabled', false)
   }
 })
+// endregion
 
-const initMonitorFromStore = (storeState: AppSettings | undefined): void => {
+const initMonitor = (storeState: AppSettings | undefined): void => {
   const monitorConfig = {
     targetIp: store.get('targetIp'),
     failureSeconds: store.get('failureSeconds'),
@@ -88,34 +90,26 @@ const initMonitorFromStore = (storeState: AppSettings | undefined): void => {
   }
 }
 
+const initAppStartup = (storeState: AppSettings | undefined): void => {
+  app.setLoginItemSettings({
+    openAtLogin: storeState?.launchOnStartup || false,
+    path: app.getPath('exe')
+  })
+}
+
 // Watchers
 store.onDidAnyChange((storeState) => {
   settingsWindow?.webContents.send('settings:load', storeState)
 
-  initMonitorFromStore(storeState)
+  initMonitor(storeState)
+  initAppStartup(storeState)
 })
-
-// -----------------------------
-// Helpers
-// -----------------------------
-const applyLoginItem = (): void => {
-  app.setLoginItemSettings({
-    openAtLogin: store.get('startWithWindows')
-  })
-}
 
 ipcMain.handle('settings:get', () => store.store)
 
 ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
-  const prevStart = store.get('startWithWindows')
-
   // Persist new settings
   store.set({ ...store.store, ...s })
-
-  // Apply login-at-start toggle
-  if (s.startWithWindows !== undefined && s.startWithWindows !== prevStart) {
-    applyLoginItem()
-  }
 })
 
 ipcMain.handle('confirm:accept', async () => {
@@ -147,14 +141,12 @@ if (!gotLock) {
     app.quit()
   }
 } else {
-  app.on('second-instance', () => {
-    showSettings()
-  })
+  initMonitor(store.store)
+  initAppStartup(store.store)
 
   app.whenReady().then(() => {
     electronApp.setAppUserModelId('com.power.guard')
 
-    applyLoginItem()
     createTray()
     showSettings()
 
@@ -170,5 +162,9 @@ if (!gotLock) {
   // @ts-ignore False Vue event warning
   app.on('window-all-closed', (e: Electron.Event): void => {
     e.preventDefault()
+  })
+
+  app.on('second-instance', () => {
+    showSettings()
   })
 }
