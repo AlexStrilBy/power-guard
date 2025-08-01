@@ -2,30 +2,25 @@ import { execFile } from 'node:child_process'
 
 export type PowerAction = 'sleep' | 'hibernate' | 'shutdown'
 
-function run(cmd: string, args: string[]): Promise<void> {
+function run(cmd: string, args?: string[]): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     execFile(cmd, args, { windowsHide: true }, (err) => (err ? reject(err) : resolve()))
   })
 }
 
-/**
- * - Hibernate: `shutdown /h` (requires hibernate enabled; run once as admin: `powercfg /hibernate on`).
- * - Sleep:     `rundll32.exe powrprof.dll,SetSuspendState 0,1,0` (behavior varies if Hibernate is enabled).
- * - Shutdown:  `shutdown /s /t 0`.
- */
 export async function performAction(action: PowerAction): Promise<void> {
   switch (action) {
     case 'hibernate':
       console.log('Hibernating system...')
-      // await run('shutdown', ['/h'])
+      await run('shutdown', ['/h'])
       break
     case 'sleep':
       console.log('Putting system to sleep...')
-      // await run('rundll32.exe', ['powrprof.dll,SetSuspendState', '0,1,0'])
+      await run('rundll32.exe', ['powrprof.dll,SetSuspendState', '0,0,0'])
       break
     case 'shutdown':
       console.log('Shutting down system...')
-      // await run('shutdown', ['/s', '/t', '0'])
+      await run('shutdown', ['/s', '/t', '30'])
       break
   }
 }

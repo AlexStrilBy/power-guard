@@ -2,9 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import { AppSettings, ConfirmData } from '../main/types'
 
-// Custom APIs for renderer
 const api = {
-  // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
   onSettingsLoad: (cb: (s: AppSettings) => void) =>
     ipcRenderer.on('settings:load', (_e, s) => cb(s)),
@@ -17,10 +15,15 @@ const api = {
   testOutage: () => ipcRenderer.invoke('confirm:test')
 }
 
+const appConfig = {
+  appName: process.env['APP_NAME']
+}
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
+    contextBridge.exposeInMainWorld('appConfig', appConfig)
   } catch (error) {
     console.error(error)
   }
@@ -29,4 +32,6 @@ if (process.contextIsolated) {
   window.electron = electronAPI
   // @ts-ignore Missing window types
   window.api = api
+  // @ts-ignore Missing window types
+  window.appConfig = appConfig
 }

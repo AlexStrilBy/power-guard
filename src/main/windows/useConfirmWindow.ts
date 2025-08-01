@@ -16,8 +16,8 @@ export const useConfirmWindow: BaseWindowComposable = ({
 
     window = new BrowserWindow({
       width: 420,
-      height: 230,
-      frame: false,
+      height: 200,
+      frame: true,
       alwaysOnTop: false,
       resizable: false,
       autoHideMenuBar: true,

@@ -1,9 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-
 import { OutageMonitor } from './monitor'
-
 import icon from '../../resources/icon.png?asset'
 import { BaseWindowProps } from './windows/types'
 import { useSettingsWindow } from './windows/useSettingsWindow'
@@ -12,6 +10,11 @@ import { useTray } from './tray/useTray'
 import { BaseTrayProps } from './tray/types'
 import { AppSettings, ConfirmData } from './types'
 import { useAppSettingStore } from './store/useAppSettingStore'
+import dotenv from 'dotenv'
+import moment from 'moment'
+import { performAction } from './power'
+
+dotenv.config()
 
 // region Globals
 let settingsWindow: BrowserWindow | null = null
@@ -41,12 +44,14 @@ const sendConfirmEvent = (): void => {
 
 const sendSettingsLoadEvent = (): void => {
   settingsWindow?.webContents.send('settings:load', store.store)
+  // tra?.webContents.send('settings:load', store.store)
 }
 // endregion
 
 // region Windows
 const { createWindow: createSettingsWindow } = useSettingsWindow(baseWindowProps)
-const { createWindow: createConfirmWindow } = useConfirmWindow(baseWindowProps)
+const { createWindow: createConfirmWindow, closeWindow: closeConfirmWindow } =
+  useConfirmWindow(baseWindowProps)
 
 const showSettings = (): void => {
   settingsWindow = createSettingsWindow()
@@ -70,12 +75,7 @@ const { createTray } = useTray({
   ...baseTrayProps,
   onOpenSettings: showSettings,
   onSimulateOutage: () => showConfirm(),
-  onMonitorStart: () => {
-    store.set('enabled', true)
-  },
-  onMonitorStop: () => {
-    store.set('enabled', false)
-  }
+  appSettingsStore: store
 })
 // endregion
 
@@ -90,17 +90,36 @@ const initMonitor = (storeState: AppSettings | undefined): void => {
     monitor = new OutageMonitor(monitorConfig)
   }
 
+  monitor.on('outage', () => {
+    const snoozeActiveUntil = store.get('snoozeActiveUntil')
+    const secondsSnoozeActive = snoozeActiveUntil
+      ? moment(snoozeActiveUntil).unix() - moment().unix()
+      : 0
+
+    if (secondsSnoozeActive > 0) {
+      monitor?.stop()
+
+      setTimeout(() => {
+        monitor?.start()
+        store.set('snoozeActiveUntil', null)
+      }, secondsSnoozeActive * 1000)
+
+      return
+    }
+
+    showConfirm()
+  })
+
   if (typeof storeState === 'undefined') {
     monitor.stop()
     return
   }
 
   monitor.update(monitorConfig)
+  monitor.stop()
 
   if (storeState.enabled) {
     monitor.start()
-  } else {
-    monitor.stop()
   }
 }
 
@@ -124,22 +143,20 @@ store.onDidAnyChange((storeState) => {
 ipcMain.handle('settings:get', () => store.store)
 
 ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
-  // Persist new settings
   store.set({ ...store.store, ...s })
 })
 
 ipcMain.handle('confirm:accept', async () => {
-  console.log('confirm:accept called')
-  // closeConfirmWindow()
-  // await performAction(store.get('action'))
+  closeConfirmWindow()
+  await performAction(store.get('action'))
 })
 
 ipcMain.handle('confirm:cancel', async () => {
-  console.log('confirm:cancel called')
-  // closeConfirmWindow()
-  //
-  // monitor.stop()
-  // setTimeout(() => store.get('enabled') && monitor.start(), store.get('snoozeMinutes') * 60_000)
+  closeConfirmWindow()
+
+  const timestamp = moment().add(store.get('snoozeMinutes'), 'minutes').valueOf()
+
+  store.set('snoozeActiveUntil', timestamp)
 })
 
 ipcMain.handle('confirm:test', async () => {
@@ -162,6 +179,7 @@ if (!gotLock) {
   initAppStartup(store.store)
 
   app.whenReady().then(() => {
+    app.setName(process.env.APP_NAME || '')
     electronApp.setAppUserModelId('com.power.guard')
 
     createTray()

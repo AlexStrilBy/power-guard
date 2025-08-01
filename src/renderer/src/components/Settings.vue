@@ -1,8 +1,17 @@
 <script setup lang="ts">
 import { AppSettings } from '../../../main/types'
-import { onBeforeMount, ref } from 'vue'
+import { onBeforeMount, ref, watch } from 'vue'
+import { useAppConfigStore } from '@renderer/store/useAppConfigStore'
+import { storeToRefs } from 'pinia'
+import { useCountdown } from '@renderer/composables/useCountdown'
+import moment from 'moment'
 
+const { appConfig } = storeToRefs(useAppConfigStore())
 const appSettings = ref<AppSettings>()
+
+const { startCountdown, timer: snoozeLeftTimer } = useCountdown({
+  onTimerFinish: () => {}
+})
 
 const save = (): void => {
   if (!appSettings.value) return
@@ -25,6 +34,15 @@ onBeforeMount(async () => {
     appSettings.value = updated
   })
 })
+
+watch(
+  () => appSettings.value?.snoozeActiveUntil,
+  (timestamp) => {
+    if (timestamp) {
+      startCountdown(moment(timestamp).unix() - moment().unix())
+    }
+  }
+)
 </script>
 
 <template>
@@ -32,7 +50,7 @@ onBeforeMount(async () => {
     <h2>Loading...</h2>
   </div>
   <div v-else class="wrap">
-    <h2>Power Guard</h2>
+    <h2>{{ appConfig.appName }}</h2>
     <div class="row">
       <label>Target IP (mains-only device)</label>
       <input v-model="appSettings.targetIp" placeholder="192.168.1.50" />
@@ -95,7 +113,12 @@ onBeforeMount(async () => {
     </div>
 
     <div class="row checkbox">
-      <label> <input v-model="appSettings.enabled" type="checkbox" /> Enable monitoring </label>
+      <label>
+        <input v-model="appSettings.enabled" type="checkbox" /> Enable monitoring
+        <span v-if="appSettings.snoozeActiveUntil && snoozeLeftTimer">
+          (Snooze for {{ snoozeLeftTimer }} seconds)
+        </span>
+      </label>
     </div>
     <div class="row checkbox">
       <label>

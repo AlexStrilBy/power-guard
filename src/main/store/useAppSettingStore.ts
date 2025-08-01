@@ -14,7 +14,8 @@ export const useAppSettingStore = (): UseAppSettingStoreReturn => {
     confirmCountdown: 20,
     launchOnStartup: true,
     enabled: true,
-    snoozeMinutes: 5
+    snoozeMinutes: 5,
+    snoozeActiveUntil: null
   }
 
   const store = new Store<AppSettings>({ defaults })

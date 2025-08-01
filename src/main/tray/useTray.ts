@@ -1,27 +1,29 @@
 import { app, Menu, nativeImage, Tray } from 'electron'
 import { BaseTrayComposable, BaseTrayProps } from './types'
-import { useAppSettingStore } from '../store/useAppSettingStore'
+import ElectronStore from 'electron-store'
+import { AppSettings } from '../types'
 
 type UseTrayProps = BaseTrayProps & {
   onOpenSettings: () => void
   onSimulateOutage: () => void
-  onMonitorStart: () => void
-  onMonitorStop: () => void
+  appSettingsStore: ElectronStore<AppSettings>
 }
 
 export const useTray: BaseTrayComposable<UseTrayProps> = ({
   icon,
   onOpenSettings,
   onSimulateOutage,
-  onMonitorStart,
-  onMonitorStop
+  appSettingsStore
 }) => {
+  let enabled = appSettingsStore.get('enabled')
   let tray: Tray | null = null
 
-  const { store } = useAppSettingStore()
+  appSettingsStore.onDidChange('enabled', (value) => {
+    enabled = value || false
+    updateMenu()
+  })
 
   const updateMenu = (): void => {
-    const enabled = store.get('enabled')
     const menu = Menu.buildFromTemplate([
       { label: 'Open Settings', click: onOpenSettings },
       { type: 'separator' },
@@ -36,11 +38,13 @@ export const useTray: BaseTrayComposable<UseTrayProps> = ({
     tray?.setContextMenu(menu)
   }
 
+  /**
+   * Yeah some stupid stuff here, but this is the only way to toggle the monitoring state
+   * For some reason appSettingsStore.set doesn't trigger the onDidChange event
+   */
   const handleMonitoringStateUpdated = (): void => {
-    const newState = !store.get('enabled')
-    store.set('enabled', newState)
-    if (newState) onMonitorStart()
-    else onMonitorStop()
+    enabled = !enabled
+    appSettingsStore.set('enabled', enabled)
     updateMenu()
   }
 
@@ -48,7 +52,7 @@ export const useTray: BaseTrayComposable<UseTrayProps> = ({
     const trayIcon = icon ? nativeImage.createFromPath(icon) : nativeImage.createEmpty()
     tray = new Tray(trayIcon)
 
-    tray.setToolTip('Power Guard')
+    tray.setToolTip(process.env.APP_NAME || '')
     tray.on('click', onOpenSettings)
     updateMenu()
   }

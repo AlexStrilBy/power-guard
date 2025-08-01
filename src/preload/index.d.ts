@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { AppSettings, ConfirmData } from '../main/types'
+import { AppConfig, AppSettings, ConfirmData } from "../main/types";
 
 declare global {
   interface Window {
@@ -12,6 +12,7 @@ declare global {
       confirmAccept(): Promise<void>
       confirmCancel(): Promise<void>
       testOutage(): Promise<void>
-    }
+    },
+    appConfig: AppConfig
   }
 }
