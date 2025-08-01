@@ -16,7 +16,7 @@ export const useSettingsWindow: BaseWindowComposable = ({
 
     window = new BrowserWindow({
       width: 560,
-      height: 900,
+      height: 950,
       show: false, // start hidden; show when user clicks tray
       autoHideMenuBar: true,
       ...(process.platform === 'linux' ? { icon } : {}),

@@ -29,7 +29,7 @@ export const useConfirmWindow: BaseWindowComposable = ({
     })
 
     // Route renderer to a confirm view (hash-based)
-    if (rendererUrl) window.loadURL(rendererUrl + '#/confirm')
+    if (rendererUrl) window.loadURL(rendererUrl + '#confirm')
     else window.loadFile(join(__dirname, '../renderer/index.html'), { hash: 'confirm' })
 
     window.on('closed', () => (window = null))

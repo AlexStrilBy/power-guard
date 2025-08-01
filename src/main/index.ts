@@ -1,10 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
-import Store from 'electron-store'
 
 import { OutageMonitor } from './monitor'
-import { performAction, type PowerAction } from './power'
 
 import icon from '../../resources/icon.png?asset'
 import { BaseWindowProps } from './windows/types'
@@ -12,26 +10,17 @@ import { useSettingsWindow } from './windows/useSettingsWindow'
 import { useConfirmWindow } from './windows/useConfirmWindow'
 import { useTray } from './tray/useTray'
 import { BaseTrayProps } from './tray/types'
-import { AppSettings } from './types'
+import { AppSettings, ConfirmData } from './types'
+import { useAppSettingStore } from './store/useAppSettingStore'
 
-// -----------------------------
-// Settings & defaults
-// -----------------------------
-const defaults: AppSettings = {
-  targetIp: '192.168.1.1',
-  action: 'hibernate',
-  failureSeconds: 8,
-  confirmCountdown: 20,
-  startWithWindows: true,
-  enabled: true,
-  snoozeMinutes: 5
-}
+// region Globals
+let settingsWindow: BrowserWindow | null = null
+let confirmWindow: BrowserWindow | null = null
+let monitor: OutageMonitor | null = null
+const { store } = useAppSettingStore()
+// endregion
 
-const store = new Store<AppSettings>({ defaults })
-
-// -----------------------------
-// Globals
-// -----------------------------
+// region Defaults
 const baseWindowProps: BaseWindowProps = {
   rendererUrl: process.env['ELECTRON_RENDERER_URL'],
   preloadFile: join(__dirname, '../preload/index.mjs'),
@@ -40,17 +29,70 @@ const baseWindowProps: BaseWindowProps = {
 const baseTrayProps: BaseTrayProps = {
   icon
 }
+// endregion
 
 const { createWindow: createSettingsWindow } = useSettingsWindow(baseWindowProps)
-const { createWindow: createConfirmWindow, closeWindow: closeConfirmWindow } =
-  useConfirmWindow(baseWindowProps)
-const { createTray } = useTray(baseTrayProps)
+const { createWindow: createConfirmWindow } = useConfirmWindow(baseWindowProps)
 
-// Monitor instance
-const monitor = new OutageMonitor({
-  targetIp: store.get('targetIp'),
-  failureSeconds: store.get('failureSeconds'),
-  intervalMs: 1000
+const showSettings = (): void => {
+  settingsWindow = createSettingsWindow()
+  settingsWindow.show()
+  settingsWindow.focus()
+}
+
+const showConfirm = (): void => {
+  confirmWindow = createConfirmWindow()
+  if (confirmWindow.isMinimized()) confirmWindow.restore()
+  confirmWindow.show()
+  confirmWindow.focus()
+  confirmWindow.webContents.send('confirm:show', {
+    action: store.get('action'),
+    countdown: store.get('confirmCountdown')
+  } as ConfirmData)
+}
+
+const { createTray } = useTray({
+  ...baseTrayProps,
+  onOpenSettings: showSettings,
+  onSimulateOutage: () => showConfirm(),
+  onMonitorStart: () => {
+    store.set('enabled', true)
+  },
+  onMonitorStop: () => {
+    store.set('enabled', false)
+  }
+})
+
+const initMonitorFromStore = (storeState: AppSettings | undefined): void => {
+  const monitorConfig = {
+    targetIp: store.get('targetIp'),
+    failureSeconds: store.get('failureSeconds'),
+    intervalMs: store.get('pingIntervalSeconds') * 1000
+  }
+
+  if (!monitor) {
+    monitor = new OutageMonitor(monitorConfig)
+  }
+
+  if (typeof storeState === 'undefined') {
+    monitor.stop()
+    return
+  }
+
+  monitor.update(monitorConfig)
+
+  if (storeState.enabled) {
+    monitor.start()
+  } else {
+    monitor.stop()
+  }
+}
+
+// Watchers
+store.onDidAnyChange((storeState) => {
+  settingsWindow?.webContents.send('settings:load', storeState)
+
+  initMonitorFromStore(storeState)
 })
 
 // -----------------------------
@@ -62,21 +104,6 @@ const applyLoginItem = (): void => {
   })
 }
 
-const showSettings = (): void => {
-  const win = createSettingsWindow()
-  win.show()
-  win.focus()
-  win.webContents.send('settings:load', store.store)
-}
-
-const showConfirm = (action: PowerAction, countdown: number): void => {
-  const win = createConfirmWindow()
-  if (win.isMinimized()) win.restore()
-  win.show()
-  win.focus()
-  win.webContents.send('confirm:show', { action, countdown })
-}
-
 ipcMain.handle('settings:get', () => store.store)
 
 ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
@@ -85,12 +112,6 @@ ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
   // Persist new settings
   store.set({ ...store.store, ...s })
 
-  // Apply changed monitor parameters
-  monitor.update({
-    targetIp: store.get('targetIp'),
-    failureSeconds: store.get('failureSeconds')
-  })
-
   // Apply login-at-start toggle
   if (s.startWithWindows !== undefined && s.startWithWindows !== prevStart) {
     applyLoginItem()
@@ -98,20 +119,21 @@ ipcMain.handle('settings:save', (_e, s: Partial<AppSettings>) => {
 })
 
 ipcMain.handle('confirm:accept', async () => {
-  closeConfirmWindow()
-  await performAction(store.get('action'))
+  console.log('confirm:accept called')
+  // closeConfirmWindow()
+  // await performAction(store.get('action'))
 })
 
 ipcMain.handle('confirm:cancel', async () => {
-  closeConfirmWindow()
-
-  monitor.stop()
-  setTimeout(() => store.get('enabled') && monitor.start(), store.get('snoozeMinutes') * 60_000)
+  console.log('confirm:cancel called')
+  // closeConfirmWindow()
+  //
+  // monitor.stop()
+  // setTimeout(() => store.get('enabled') && monitor.start(), store.get('snoozeMinutes') * 60_000)
 })
 
-// Optional: UI test hook
 ipcMain.handle('confirm:test', async () => {
-  showConfirm(store.get('action'), 5)
+  showConfirm()
 })
 
 // -----------------------------
@@ -143,8 +165,6 @@ if (!gotLock) {
     app.on('browser-window-created', (_, window) => {
       optimizer.watchWindowShortcuts(window)
     })
-
-    if (store.get('enabled')) monitor.start()
   })
 
   // @ts-ignore False Vue event warning

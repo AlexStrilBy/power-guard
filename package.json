@@ -25,9 +25,10 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@types/ping": "^0.4.4",
-    "electron-store": "^10.1.0",
+    "electron-store": "^8",
     "electron-updater": "^6.3.9",
-    "ping": "^0.4.4"
+    "ping": "^0.4.4",
+    "three": "^0.178.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-prettier": "3.0.0",

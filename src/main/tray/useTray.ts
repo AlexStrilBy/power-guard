@@ -1,48 +1,53 @@
 import { app, Menu, nativeImage, Tray } from 'electron'
-import { BaseTrayComposable } from './types'
+import { BaseTrayComposable, BaseTrayProps } from './types'
+import { useAppSettingStore } from '../store/useAppSettingStore'
 
-export const useTray: BaseTrayComposable = ({ icon }) => {
+type UseTrayProps = BaseTrayProps & {
+  onOpenSettings: () => void
+  onSimulateOutage: () => void
+  onMonitorStart: () => void
+  onMonitorStop: () => void
+}
+
+export const useTray: BaseTrayComposable<UseTrayProps> = ({
+  icon,
+  onOpenSettings,
+  onSimulateOutage,
+  onMonitorStart,
+  onMonitorStop
+}) => {
   let tray: Tray | null = null
 
-  const onOpenSettings = (): void => {
-    console.log('Open settings clicked')
-  }
+  const { store } = useAppSettingStore()
 
-  const onSimulateOutage = (): void => {
-    console.log('Simulate outage clicked')
-
-    // showConfirm(store.get('action'), 5)
+  const updateMenu = (): void => {
+    const enabled = store.get('enabled')
+    const menu = Menu.buildFromTemplate([
+      { label: 'Open Settings', click: onOpenSettings },
+      { type: 'separator' },
+      { label: 'Simulate Outage (test)', click: onSimulateOutage },
+      {
+        label: enabled ? 'Pause Monitoring' : 'Resume Monitoring',
+        click: handleMonitoringStateUpdated
+      },
+      { type: 'separator' },
+      { label: 'Quit', click: () => app.exit(0) }
+    ])
+    tray?.setContextMenu(menu)
   }
 
   const handleMonitoringStateUpdated = (): void => {
-    console.log('Monitoring state updated')
-
-    // store.set('enabled', !enabled)
-    // if (store.get('enabled')) monitor.start()
-    // else monitor.stop()
-    // updateMenu()
+    const newState = !store.get('enabled')
+    store.set('enabled', newState)
+    if (newState) onMonitorStart()
+    else onMonitorStop()
+    updateMenu()
   }
 
   function createTray(): void {
     // Use your PNG/ICO if available; fallback to empty image to avoid errors
     const trayIcon = icon ? nativeImage.createFromPath(icon) : nativeImage.createEmpty()
     tray = new Tray(trayIcon)
-
-    const updateMenu = (): void => {
-      const enabled = false // store.get('enabled')
-      const menu = Menu.buildFromTemplate([
-        { label: 'Open Settings', click: onOpenSettings },
-        { type: 'separator' },
-        { label: 'Simulate Outage (test)', click: onSimulateOutage },
-        {
-          label: enabled ? 'Pause Monitoring' : 'Resume Monitoring',
-          click: handleMonitoringStateUpdated
-        },
-        { type: 'separator' },
-        { label: 'Quit', click: () => app.exit(0) }
-      ])
-      tray!.setContextMenu(menu)
-    }
 
     tray.setToolTip('Power Guard')
     tray.on('click', onOpenSettings)

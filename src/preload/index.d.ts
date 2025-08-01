@@ -1,5 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
-import { AppSettings } from '../main/types'
+import { AppSettings, ConfirmData } from '../main/types'
 
 declare global {
   interface Window {
@@ -8,7 +8,7 @@ declare global {
       getSettings(): Promise<AppSettings>
       onSettingsLoad(cb: (s: AppSettings) => void): void
       saveSettings(s: AppSettings): Promise<void>
-      onConfirm(cb: (d: { action: string; countdown: number }) => void): void
+      onConfirm(cb: (d: ConfirmData) => void): void
       confirmAccept(): Promise<void>
       confirmCancel(): Promise<void>
       testOutage(): Promise<void>

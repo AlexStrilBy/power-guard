@@ -5,10 +5,17 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background-image: url('./wavy-lines.svg');
-  background-size: cover;
+  background:
+    linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), /* dark overlay */
+    radial-gradient(circle at top left, rgba(85,0,255,0.15), transparent 70%),
+    radial-gradient(circle at bottom right, rgba(255,0,51,0.15), transparent 70%),
+    url('./wavy-lines.svg') repeat-y center;
+  background-size: 100% auto;
+  background-blend-mode: screen;
+  background-color: #000;
   user-select: none;
 }
+
 
 code {
   font-weight: 600;
@@ -105,7 +112,7 @@ code {
   cursor: pointer;
   text-decoration: none;
   display: inline-block;
-  border: 1px solid transparent;
+  border: 1px solid var(--ev-button-alt-border);
   text-align: center;
   font-weight: 600;
   white-space: nowrap;
@@ -113,7 +120,6 @@ code {
   padding: 0 20px;
   line-height: 38px;
   font-size: 14px;
-  border-color: var(--ev-button-alt-border);
   color: var(--ev-button-alt-text);
   background-color: var(--ev-button-alt-bg);
 }
@@ -168,4 +174,56 @@ code {
   .actions {
     display: none;
   }
+}
+
+
+.wrap {
+  padding: 16px;
+}
+
+.row {
+  margin-top: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.row.checkbox {
+  display: block;
+}
+
+.row.actions {
+  margin-top: 16px;
+}
+
+.flex {
+  display: flex;
+}
+
+.items-space-between {
+  justify-content: space-between;
+}
+
+input,
+select {
+  padding: 6px 8px;
+}
+
+button {
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+button.secondary {
+  margin-left: 8px;
+}
+
+.hint {
+  margin-top: 12px;
+  color: #666;
+  font-size: 12px;
+}
+
+.confirm {
+  padding: 20px;
+  text-align: center;
 }
