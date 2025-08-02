@@ -9,9 +9,9 @@ export const useAppSettingStore = (): UseAppSettingStoreReturn => {
   const defaults: AppSettings = {
     targetIp: '192.168.1.1',
     action: 'sleep',
-    failureSeconds: 8,
-    pingIntervalSeconds: 60,
-    confirmCountdown: 20,
+    failureSeconds: 60,
+    pingIntervalSeconds: 30,
+    confirmCountdown: 90,
     launchOnStartup: true,
     enabled: true,
     snoozeMinutes: 5,
