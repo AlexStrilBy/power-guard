@@ -124,7 +124,7 @@ const initMonitor = (storeState: AppSettings | undefined): void => {
 const initAppStartup = (storeState: AppSettings | undefined): void => {
   app.setLoginItemSettings({
     openAtLogin: storeState?.launchOnStartup || false,
-    path: app.getPath('exe')
+    name: 'Power Guard'
   })
 }
 
@@ -181,7 +181,6 @@ if (!gotLock) {
     electronApp.setAppUserModelId('com.power.guard')
 
     createTray()
-    showSettings()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) showSettings()
